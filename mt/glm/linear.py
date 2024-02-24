@@ -11,6 +11,8 @@ import glm
 
 
 __all__ = [
+    "mat3diag",
+    "diag3",
     "sort3",
     "cbrt",
     "solveCubic",
@@ -20,6 +22,20 @@ __all__ = [
     "svd3",
     "sop3",
 ]
+
+
+def mat3diag(x: glm.vec3) -> glm.mat3:
+    """Constructs a 3x3 diagonal matrix."""
+    m = glm.mat3()
+    m[0][0] = x[0]
+    m[1][1] = x[1]
+    m[2][2] = x[2]
+    return m
+
+
+def diag3(x: glm.mat3) -> glm.vec3:
+    """Extracts the diagonal vector of a 3x3 matrix."""
+    return glm.vec3(x[0][0], x[1][1], x[2][2])
 
 
 def sort3(x: glm.vec3) -> glm.vec3:
@@ -139,6 +155,8 @@ def ldu3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.ivec3]:
         A[P[0]][2] * A[P[2]][0] * A[P[0]][0] + A[P[1]][2] * A[P[2]][1] * A[P[1]][1]
     )
 
+    return A, P
+
 
 def lduBSolve3(y: glm.vec3, LDU: glm.mat3, P: glm.ivec3) -> glm.vec3:
     """Does the backward-solve step, or `U*x = y`"""
@@ -166,17 +184,25 @@ def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
     S : glm.vec3
         output diagonal vector
     """
-    ivec3 P;
-    int k;
-    vec3 y;
-    mat3 LDU;
-
     # Form the monic characteristic polynomial
+    S = glm.vec3()
     S[2] = -A[0][0] - A[1][1] - A[2][2]
-    S[1] = A[0][0]*A[1][1] + A[2][2]*A[0][0] + A[2][2]*A[1][1] -
-        A[2][1]*A[1][2] - A[2][0]*A[0][2] - A[1][0]*A[0][1]
-    S[0] = A[2][1]*A[1][2]*A[0][0] + A[2][0]*A[0][2]*A[1][1] + A[1][0]*A[0][1]*A[2][2] -
-        A[0][0]*A[1][1]*A[2][2] - A[1][0]*A[2][1]*A[0][2] - A[2][0]*A[0][1]*A[1][2]
+    S[1] = (
+        A[0][0] * A[1][1]
+        + A[2][2] * A[0][0]
+        + A[2][2] * A[1][1]
+        - A[2][1] * A[1][2]
+        - A[2][0] * A[0][2]
+        - A[1][0] * A[0][1]
+    )
+    S[0] = (
+        A[2][1] * A[1][2] * A[0][0]
+        + A[2][0] * A[0][2] * A[1][1]
+        + A[1][0] * A[0][1] * A[2][2]
+        - A[0][0] * A[1][1] * A[2][2]
+        - A[1][0] * A[2][1] * A[0][2]
+        - A[2][0] * A[0][1] * A[1][2]
+    )
 
     # Solve the cubic equation.
     solveCubic(S)
@@ -246,8 +272,8 @@ def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
     # Do a backward solve for the eigenvector
     V[2] = lduBSolve3(y, LDU, P)
 
-    #The remaining column must be orthogonal (A is symmetric)
-    V[1] = glm.cross(V[2], V[0]);
+    # The remaining column must be orthogonal (A is symmetric)
+    V[1] = glm.cross(V[2], V[0])
 
     # Normalize the columns of V
     V[0] /= glm.length(V[0])
@@ -278,10 +304,6 @@ def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat
     V : glm.mat3
         output unitary matrix
     """
-    k = int(0)
-    y = glm.vec3()
-    AA = glm.mat3()
-
     # Steps:
     # 1) Use eigendecomposition on A^T A to compute V.
     # Since A = U S V^T then A^T A = V S^T S V^T with D = S^T S and V the
@@ -290,17 +312,14 @@ def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat
     # 3) Normalize columns of U and V and square-root the eigenvalues to obtain
     # the singular values.
 
-    # Compute AA = A^T A
-    AA = glm.transpose(A) * A
-
-    # Eigen-value decomposition of AA
-    V, S = evd3(AA)
+    # Eigen-value decomposition of A^T A
+    V, S = evd3(glm.transpose(A) * A)
 
     # Count the rank
     k = int(S[0] > thr) + int(S[1] > thr) + int(S[2] > thr)
 
-    if k==0:
-        # Zero matrix. 
+    if k == 0:
+        # Zero matrix.
         # Since V is already orthogonal, just copy it into U.
         U = glm.mat3(V)
     elif k == 1:
@@ -310,7 +329,7 @@ def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat
         # column vectors. Since V_1 is known, we may compute
         # U_1 = A V_1.  The S_11 factor is not important as
         # U_1 will be normalized later.
-        U[0] = A*V[0]
+        U[0] = A * V[0]
 
         # The other columns of U do not contribute to the expansion
         # and we may arbitrarily choose them (but they do need to be
@@ -332,15 +351,15 @@ def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat
         # The first two singular values are non-zero.
         # Compute U_1 = A V_1 and U_2 = A V_2. See case 1
         # for more information.
-        U[0] = A*V[0]
-        U[1] = A*V[1]
+        U[0] = A * V[0]
+        U[1] = A * V[1]
 
         # Cross the first two to obtain the remaining column
         U[2] = glm3.cross(U[0], U[1])
     else:
         # All singular values are non-zero.
         # We may compute U = A V. See case 1 for more information.
-        U = A*V
+        U = A * V
 
     # Normalize the columns of U
     U[0] /= glm.length(U[0])
@@ -359,11 +378,10 @@ def sop3(A: glm.mat3) -> glm.mat3:
     """Finds the nearest rotation."""
     U, D, V = svd3(A, 1e-10)
     VT = glm.transpose(V)
-    R = U*VT
+    R = U * VT
     if glm.determinant(R) < 0:
         # fix the sign by switching the last column
         U[2] = -U[2]
-        R = U*VT
+        R = U * VT
 
     return R
-
