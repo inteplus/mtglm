@@ -21,6 +21,11 @@ __all__ = [
     "evd3",
     "svd3",
     "sop3",
+    "mat2diag",
+    "diag2",
+    "rot2",
+    "svd2",
+    "evd2",
 ]
 
 
@@ -170,7 +175,7 @@ def lduBSolve3(y: glm.vec3, LDU: glm.mat3, P: glm.ivec3) -> glm.vec3:
 def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
     """Eigenvalue decomposes a symmetric positive semidefinite 3x3 matrix
 
-    Compute: `A = V diag(S) V.T`. Eigenvalues are sorted in the descending oder.
+    Compute: `A = V diag(S) V.T`. Eigenvalues are sorted in the descending order.
 
     Parameters
     ----------
@@ -180,7 +185,7 @@ def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
     Returns
     -------
     V : glm.mat3
-        output unitary matrix
+        output rotation matrix
     S : glm.vec3
         output diagonal vector
     """
@@ -284,9 +289,9 @@ def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
 
 
 def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat3]:
-    """Singular-value decomposes a 3x3 matrix.
+    """Singularvalue decomposes a 3x3 matrix.
 
-    Compute `A = U diag(S) V^T`. Singular-values are sorted in descending order.
+    Compute `A = U diag(S) V^T`. Singularvalues are sorted in descending order.
 
     Parameters
     ----------
@@ -298,11 +303,11 @@ def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat
     Returns
     -------
     U : glm.mat3
-        output unitary matrix
+        output rotation matrix
     S : glm.vec3
         output diagonal vector
     V : glm.mat3
-        output unitary matrix
+        output rotation matrix
     """
     # Steps:
     # 1) Use eigendecomposition on A^T A to compute V.
@@ -355,7 +360,7 @@ def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat
         U[1] = A * V[1]
 
         # Cross the first two to obtain the remaining column
-        U[2] = glm3.cross(U[0], U[1])
+        U[2] = glm.cross(U[0], U[1])
     else:
         # All singular values are non-zero.
         # We may compute U = A V. See case 1 for more information.
@@ -385,3 +390,112 @@ def sop3(A: glm.mat3) -> glm.mat3:
         R = U * VT
 
     return R
+
+
+def mat2diag(x: glm.vec2) -> glm.mat2:
+    """Constructs a 2x2 diagonal matrix."""
+    m = glm.mat2()
+    m[0][0] = x[0]
+    m[1][1] = x[1]
+    return m
+
+
+def diag2(x: glm.mat2) -> glm.vec2:
+    """Extracts the diagonal vector of a 2x2 matrix."""
+    return glm.vec2(x[0][0], x[1][1])
+
+
+def rot2(angle: float) -> glm.mat2:
+    """Gets a 2D rotation matrix given the rotation angle in radian."""
+
+    sa = glm.sin(angle)
+    ca = glm.cos(angle)
+    return glm.mat2(glm.vec2(ca, sa), glm.vec2(-sa, ca))
+
+
+def svd2(A: glm.mat2) -> glm.vec4:
+    """Singularvalue decomposes a 2x2 matrix.
+
+    Compute `A = U diag(S) V^T`. Singularvalues are sorted in descending order.
+
+    Source from `here <https://lucidar.me/en/mathematics/singular-value-decomposition-of-a-2x2-matrix/>`_
+
+    Parameters
+    ----------
+    A : glm.mat2
+        input 2x2 matrix
+
+    Returns
+    -------
+    glm.vec4
+        Parameter (s1, s2, u, v) where `A = rot2(u) * diag(s1, s2) * rot2(-v)`.
+    """
+
+    # compute u
+    a, c = A[0]
+    b, d = A[1]
+    t1 = a * a + b * b
+    t2 = c * c + d * d
+    t3 = a * c + b * d
+    u = 0.5 * glm.atan2(2 * t3, t1 - t2)
+    su = glm.sin(u)
+    cu = glm.cos(u)
+
+    # compute s1 and s2
+    S1 = t1 + t2
+    S2 = glm.sqrt((t1 - t2) * (t1 - t2) + 4 * t3 * t3)
+    s1 = glm.sqrt(0.5 * (S1 + S2))
+    s2 = glm.sqrt(0.5 * (S1 - S2))
+
+    # compute v
+    t4 = a * b + c * d
+    t5 = a * a + c * c - b * b - d * d
+    v = 0.5 * glm.atan2(2 * t4, t5)
+    sv = glm.sin(v)
+    cv = glm.cos(v)
+
+    # correct v, s1 and s2
+    s11 = (a * cu + c * su) * cv + (b * cu + d * su) * sv
+    if s11 == 0:
+        s1 = 0
+    elif s11 < 0:
+        s1 = -s1
+    s22 = (a * cu - c * cu) * sv + (d * cu - b * su) * cv
+    if s22 == 0:
+        s2 = 0
+    elif s22 < 0:
+        s2 = -s2
+    if s1 < s2:
+        s1 = -s1
+        s2 = -s2
+        v += glm.pi()
+
+    return glm.vec4(s1, s2, u, v)
+
+
+def evd2(A: glm.mat2) -> glm.vec3:
+    """Eigenvalue decomposes a symmetric positive semidefinite 2x2 matrix
+
+    Compute: `A = V diag(S) V.T`. Eigenvalues are sorted in the descending order.
+
+    Parameters
+    ----------
+    A : glm.mat2
+        input 2x2 matrix
+
+    Returns
+    -------
+    glm.vec3
+        Parameter (s1, s2, u) where `A = rot2(u) * diag(s1, s2) * rot2(-u)`.
+    """
+
+    # Cholesky decomposition
+    L11 = glm.sqrt(A[0][0])
+    L21 = A[0][1] / L11
+    L22 = glm.sqrt(A[1][1] - L21 * L21)
+    L = glm.mat2(glm.vec2(L11, L21), glm.vec2(0, L22))
+
+    # svd2 it
+    v = svd2(L)
+
+    return glm.vec3(v.x * v.x, v.y * v.y, v.z)
