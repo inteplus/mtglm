@@ -175,7 +175,7 @@ def lduBSolve3(y: glm.vec3, LDU: glm.mat3, P: glm.ivec3) -> glm.vec3:
 def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
     """Eigenvalue decomposes a symmetric positive semidefinite 3x3 matrix
 
-    Compute: `A = V diag(S) V.T`. Eigenvalues are sorted in the descending order.
+    Compute: `A = V mat3diag(S) V.T`. Eigenvalues are sorted in the descending order.
 
     Parameters
     ----------
@@ -291,7 +291,7 @@ def evd3(A: glm.mat3) -> tp.Tuple[glm.mat3, glm.vec3]:
 def svd3(A: glm.mat3, thr: float = 1e-6) -> tp.Tuple[glm.mat3, glm.vec3, glm.mat3]:
     """Singularvalue decomposes a 3x3 matrix.
 
-    Compute `A = U diag(S) V^T`. Singularvalues are sorted in descending order.
+    Compute `A = U mat3diag(S) V^T`. Singularvalues are sorted in descending order.
 
     Parameters
     ----------
@@ -416,7 +416,7 @@ def rot2(angle: float) -> glm.mat2:
 def svd2(A: glm.mat2) -> glm.vec4:
     """Singularvalue decomposes a 2x2 matrix.
 
-    Compute `A = U diag(S) V^T`. Singularvalues are sorted in descending order.
+    Compute `A = U mat2diag(S) V^T`. Singularvalues are sorted in descending order.
 
     Source from `here <https://lucidar.me/en/mathematics/singular-value-decomposition-of-a-2x2-matrix/>`_
 
@@ -428,7 +428,7 @@ def svd2(A: glm.mat2) -> glm.vec4:
     Returns
     -------
     glm.vec4
-        Parameter (s1, s2, u, v) where `A = rot2(u) * diag(s1, s2) * rot2(-v)`.
+        Parameter (s1, s2, u, v) where `A = rot2(u) * mat2diag(s1, s2) * rot2(-v)`.
     """
 
     # compute u
@@ -476,7 +476,7 @@ def svd2(A: glm.mat2) -> glm.vec4:
 def evd2(A: glm.mat2) -> glm.vec3:
     """Eigenvalue decomposes a symmetric positive semidefinite 2x2 matrix
 
-    Compute: `A = V diag(S) V.T`. Eigenvalues are sorted in the descending order.
+    Compute: `A = V mat2diag(S) V.T`. Eigenvalues are sorted in the descending order.
 
     Parameters
     ----------
@@ -486,7 +486,7 @@ def evd2(A: glm.mat2) -> glm.vec3:
     Returns
     -------
     glm.vec3
-        Parameter (s1, s2, u) where `A = rot2(u) * diag(s1, s2) * rot2(-u)`.
+        Parameter (s1, s2, u) where `A = rot2(u) * mat2diag(s1, s2) * rot2(-u)`.
     """
 
     # Cholesky decomposition
@@ -498,4 +498,7 @@ def evd2(A: glm.mat2) -> glm.vec3:
     # svd2 it
     v = svd2(L)
 
-    return glm.vec3(v.x * v.x, v.y * v.y, v.z)
+    r = glm.vec3(v.x * v.x, v.y * v.y, v.z)
+    if r.x < r.y:
+        r = glm.vec3(r.y, r.x, r.z + glm.pi() / 2)
+    return r
